@@ -44,9 +44,10 @@
 // Include CImg library file and use its main namespace
 #include "CImg/CImg.h"
 #include <iostream>
-#include <unordered_map>
+#include <map>
 using namespace cimg_library;
 using namespace std;
+typedef unsigned long colour;
 
 #ifndef cimg_imagepath
 #define cimg_imagepath "img/"
@@ -63,7 +64,7 @@ int main(int argc,char **argv) {
   //cimg_usage("View the color profile of an image along the X axis");
 
   // Read image filename from the command line (or set it to "img/parrot.ppm" if option '-i' is not provided).
-  const char* file_i = cimg_option("-i",cimg_imagepath "default1.jpg","Input image");
+  const char* file_i = cimg_option("-i",cimg_imagepath "target.jpg","Input image");
 
   // Read pre-blurring variance from the command line (or set it to 1.0 if option '-blur' is not provided).
   //const double sigma = cimg_option("-blur",1.0,"Variance of gaussian pre-blurring");
@@ -73,11 +74,10 @@ int main(int argc,char **argv) {
 
   // Load an image, transform it to a color image (if necessary) and blur it with the standard deviation sigma.
   const CImg<unsigned char> image = CImg<>(file_i);//.normalize(0,255).blur((float)sigma).resize(-100,-100,1,3);
+  CImg<unsigned char> new_image(200,88,1,3);
 
   // Create two display window, one for the image, the other for the color profile.
-  CImgDisplay
-    main_disp(image,"Color image (Try to move mouse pointer over)",0);
-//    draw_disp(500,400,"Color profile of the X-axis",0);
+//  CImgDisplay main_disp(image,"Color image (Try to move mouse pointer over)",0);
 
   // Define colors used to plot the profile, and a hatch to draw the vertical line
   unsigned int hatch = 0xF0F0F0F0;
@@ -94,8 +94,9 @@ unsigned int val_red, val_green, val_blue;
 unsigned long key;
 
 int white=0;
-unordered_map<unsigned long,int> m;
+map<colour,int> m;
 
+int min=170,max=200;
 
 cimg_forXY(image,x,y) { 
 
@@ -104,11 +105,30 @@ val_red =image(x,y,0);val_green=image(x,y,1);val_blue=image(x,y,2);
 key = val_red*1000000+val_green*1000+val_blue;
 
 m[key]++;
+
+if((val_red>=min&&val_red<=max)&&
+   (val_green>=min&&val_green<=max)&&
+   (val_blue>=min&&val_blue<=max)){
+	//unsigned char temp[3];
+	//temp[0]=val_red;temp[1]=val_green;temp[2]=val_blue;
+	new_image(x,y,0)=0;
+	new_image(x,y,1)=0;
+	new_image(x,y,2)=0;
+} else {
+	new_image(x,y,0)=255;
+	new_image(x,y,1)=255;
+	new_image(x,y,2)=255;
+}
 }
 
-for(unordered_map<unsigned long,int> it=m.begin();
-	it != m.end(); it++){
-cout << it.first << '\t' << it.second << endl;
+  new_image.save(cimg_imagepath "result.jpg");
+
+//  CImgDisplay
+//    sec_disp(new_image,"Color image (Try to move mouse pointer over)",1);
+
+for(map<colour,int>::iterator it=m.begin();
+	it != m.end(); ++it){
+	cout << it->first << '\t' << it->second << endl;
 
 }
 
