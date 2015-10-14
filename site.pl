@@ -267,21 +267,19 @@ sub solveCaptcha{
 
 	print "Download captcha from here: $url\n";
 
+	unless(-e "Cache/".$captchaFile){
+		getCaptchaImage($url);
+	}
+
+	until(-e "Captcha/".$captchaFile){
+		sleep(1);
+	}
+
 	if(-e "Captcha/".$captchaFile){
 		#print "Known captcha.\n";
-		open FILE, "< Captcha/$captchaFile";
+		open FILE, "< Captcha/$captchaFile" || die "Could not open captcha file";
 		$captcha = <FILE>;
 		chomp $captcha;
-		close FILE;
-	} else {
-		#print "Unknown captcha.\n";
-		getCaptchaImage($url);
-		system("display \"Cache/$captchaFile\" &");
-		print "Enter the solution for the captcha: ";
-		$captcha = <STDIN>;
-		chomp $captcha;
-		open FILE, "> Captcha/$captchaFile";
-		print FILE $captcha;
 		close FILE;
 	}
 

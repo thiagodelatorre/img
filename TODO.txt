@@ -2,11 +2,13 @@ Script:
 
 - paralelize connections
 - flood sessions on the server
-- treat "Fascia occupata"
+(done) retry posts and gets
+(done) treat "Fascia occupata"
+- Better name for files saved for debugging
 
 Captcha (manual)
 
 - apply filter on the captcha
-- close image after solving the captcha
-- make the captcha image bigger
-- create another utility only for captcha
+(done) close image after solving the captcha
+(done) make the captcha image bigger
+(done) create another utility only for captcha
