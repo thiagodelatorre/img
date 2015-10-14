@@ -5,6 +5,8 @@ use warnings;
 use utf8;
  require LWP::UserAgent;
  
+ our $test=1;
+
  our $ua = LWP::UserAgent->new(agent=>'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.107 Safari/537.36');
  push @{ $ua->requests_redirectable }, 'POST';
  $ua->timeout(180);
@@ -24,7 +26,7 @@ my $firstPage = login();
 my $done=0;
 
 while($done==0){
-	$page = confirmDocLegal($firstPage);
+	my $page = confirmDocLegal($firstPage);
 	#my $page = getPage("Test1.html");
 	print STDERR "Documents legalization confirmed\n";
 
@@ -345,14 +347,24 @@ sub postPage{
 	#	print $key, " = ", $ref_formFields->{$key}, "\n";
 	#}
 
-	my $response = $ua->post($url, $ref_formFields);
+	my $i=0;
+	my $response;
+ 
+	do{
+		if($i>0){
+			print STDERR "Trying post $url again\n";
+		}
+		$response = $ua->post($url, $ref_formFields);
+
+		$i++;
+		sleep(2) unless($response->is_success);
+	}while(!$response->is_success && $i<10);
 
 	 if ($response->is_success) {
-	     $page = $response->decoded_content;  # or whatever
+	     $page = $response->decoded_content; 
 	 }
 	 else {
-	     warn "Connection failed: $response->status_line\n";
-	     #$page = $response->status_line;
+	     die "Connection failed: $response->status_line\n";
 	 }
 	
 	savePage($page);
@@ -390,15 +402,27 @@ sub getPage{
 sub downloadPage{
 	my $url = $_[0];
 	my $page = "";
- 	
-	my $response = $ua->get($url);
- 
-	 if ($response->is_success) {
-	     $page = $response->decoded_content;  # or whatever
-	 }
-	 else {
-	     die $response->status_line;
-	 }
+
+	my $i=0;
+	my $response;
+
+	do{
+		if($i>0){
+			print STDERR "Trying post $url again\n";
+		}
+		
+		$response = $ua->get($url);
+
+		$i++;
+		sleep(2) unless($response->is_success);
+	}while(!$response->is_success && $i<10);
+
+	if ($response->is_success) {
+		$page = $response->decoded_content; 
+	}
+	else {
+		die "Connection failed: $response->status_line\n";
+	}
 
 	return $page;
 }
