@@ -37,10 +37,14 @@ while($done==0){
 		#$page = getPage("Test3.html");
 		#printForm($page);
 
-		$page = finishSchedule($page);
+		do{
+			#$page = getPage("Test3.html");print "Not yet.\n";
+			$page = finishSchedule($page);
+			sleep(1);
+		}while($page=~/Fascia occupata da altro utente/);
 		
 		$done=1;
-		<STDIN>;
+		#<STDIN>;
 	} else {
 		print "Not yet.\n";
 	}
