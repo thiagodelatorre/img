@@ -11,7 +11,7 @@ while(1){
 	foreach my $captchaFile (@files){
 		my $solutionFile = $captchaFile;
 		$solutionFile =~ s/Cache/Captcha/;
-		unless(-e $solutionFile){
+		if(!(-e $solutionFile) && -s $captchaFile){
 			print $captchaFile, "\n";
 			my $pid = system("display -resize 400x176 \"./$captchaFile\" &");
 			print "Enter the solution for the captcha: ";
