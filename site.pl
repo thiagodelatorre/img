@@ -20,36 +20,141 @@ unless($username=~/thiago/){
 	exit(1);
 }
 
-my $page = login();
-#my $page = getPage("DocLeg.html");
-#$page = confirmDocLegal($page);
+my $firstPage = login();
+my $done=0;
 
-#print $page;
+while($done==0){
+	$page = confirmDocLegal($firstPage);
+	#my $page = getPage("Test1.html");
+	print STDERR "Documents legalization confirmed\n";
+
+	my $hasOpenDays = checkOpenDays($page);
+	if($hasOpenDays){
+		$page = chooseDay($page);
+		#$page = getPage("Test2.html");
+		
+		$page = confirmDay($page);
+		#$page = getPage("Test3.html");
+		#printForm($page);
+
+		$page = finishSchedule($page);
+		
+		$done=1;
+		<STDIN>;
+	} else {
+		print "Not yet.\n";
+	}
+
+	sleep(1);
+}
 
 exit(0);
 
+sub finishSchedule{
+	my $page = $_[0];
+
+	my %formFields = getForm($page);
+	delete $formFields{'ctl00$repFunzioni$ctl03$btnMenuItem'};
+	delete $formFields{'ctl00$repFunzioni$ctl02$btnMenuItem'};
+	delete $formFields{'ctl00$ContentPlaceHolder1$btnFinalBack'};
+	delete $formFields{'ctl00$repFunzioni$ctl01$btnMenuItem'};
+	delete $formFields{'ctl00$btnLogout'};
+	delete $formFields{'ctl00$repFunzioni$ctl00$btnMenuItem'};
+
+	my $captcha = solveCaptcha($page);
+	$formFields{'ctl00$ContentPlaceHolder1$captchaConf'}=$captcha;		
+	
+	#foreach my $key (keys %formFields){
+	#	print "$key = $formFields{$key}\n";
+	#}
+
+	#print "Captcha sent is $captcha\n";
+	$page = postPage($baseURL."acc_Prenota.aspx",\%formFields);
+
+	return $page;
+}
+
+sub confirmDay{
+	my $page = $_[0];
+
+	my %formFields = getForm($page);
+	delete $formFields{'ctl00$btnLogout'};
+	delete $formFields{'ctl00$repFunzioni$ctl03$btnMenuItem'};
+	delete $formFields{'ctl00$ContentPlaceHolder1$acc_Calendario1$myCalendario1$ctl03'};
+	delete $formFields{'ctl00$repFunzioni$ctl01$btnMenuItem'};
+	delete $formFields{'ctl00$repFunzioni$ctl00$btnMenuItem'};
+	delete $formFields{'ctl00$ContentPlaceHolder1$lnkBack'};
+	delete $formFields{'ctl00$repFunzioni$ctl02$btnMenuItem'};
+	delete $formFields{'ctl00$ContentPlaceHolder1$acc_Calendario1$myCalendario1$ctl01'};
+
+	$page = postPage($baseURL."acc_Prenota.aspx",\%formFields);
+
+	return $page;
+}
+
+sub chooseDay{
+	my $page = $_[0];
+
+	my %formFields = getForm($page);
+	delete $formFields{'ctl00$btnLogout'};
+	delete $formFields{'ctl00$repFunzioni$ctl02$btnMenuItem'};
+	delete $formFields{'ctl00$repFunzioni$ctl03$btnMenuItem'};
+	delete $formFields{'ctl00$repFunzioni$ctl01$btnMenuItem'};
+	delete $formFields{'ctl00$ContentPlaceHolder1$lnkBack'};
+	delete $formFields{'ctl00$ContentPlaceHolder1$acc_Calendario1$myCalendario1$ctl01'};
+	delete $formFields{'ctl00$repFunzioni$ctl00$btnMenuItem'};
+	delete $formFields{'ctl00$ContentPlaceHolder1$acc_Calendario1$myCalendario1$ctl03'};
+	
+	$page = postPage($baseURL."acc_Prenota.aspx",\%formFields);
+
+	return $page;
+}
+
+sub printForm{
+	my $page = $_[0];
+
+	my %formFields = getForm($page);
+
+	foreach my $key (keys %formFields){
+		print "$key = $formFields{$key}\n";
+	}
+}
+
+sub checkOpenDays{
+	my $page = $_[0];
+	my $hasOpenDays=0;
+	my %status;
+
+	if($page=~/<td class="([^"]+)"><input[^<]+value="(\d+)"/){
+		my ($status,$day)=($1,$2);
+
+		$status{$day} = $status;
+	
+		# open status: calendarCellMed
+		unless($status eq "otherMonthDay" || 
+			$status eq "calendarCellRed" ||
+			$status eq "noSelectableDay"){
+			$hasOpenDays=1;
+			print "Different status found: $status\n";
+		}
+	}
+
+	return $hasOpenDays;
+}
+
 sub login{
 	my $page = getPage($loginURL);
-	savePage($page);
 	print STDERR "Connected\n";
 	$page = changeLanguage($page);
-	savePage($page);
 	print STDERR "Language Changed\n";
 	$page = openLogin($page);
-	savePage($page);
 	print STDERR "Login Opened\n";
 	$page = clickLogin($page);
-	savePage($page);
 	print STDERR "Logged in\n";
 	$page = clickSchedule($page);
-	savePage($page);
 	print STDERR "Schedule clicked\n";
 	$page = clickDocLegal($page);
-	savePage($page);
 	print STDERR "Documents legalization clicked\n";
-	$page = confirmDocLegal($page);
-	savePage($page);
-	print STDERR "Documents legalization confirmed\n";
 	return $page;
 }
 
@@ -181,7 +286,7 @@ sub getCaptchaURL{
 	my $page = $_[0];
 	my $url = "";
 
-	if($page=~/<img id="captchaLogin"[^>]+src="([^"]+)"/){
+	if($page=~/<img id="[^"]*aptcha[^"]*"[^>]+src="([^"]+)"/){
 		$url = $baseURL.$1;
 	}
 
@@ -242,8 +347,11 @@ sub postPage{
 	     $page = $response->decoded_content;  # or whatever
 	 }
 	 else {
-	     die $response->status_line;
+	     warn "Connection failed: $response->status_line\n";
+	     #$page = $response->status_line;
 	 }
+	
+	savePage($page);
 
 	return $page;
 }

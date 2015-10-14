@@ -1,0 +1,12 @@
+Script:
+
+- paralelize connections
+- flood sessions on the server
+- treat "Fascia occupata"
+
+Captcha (manual)
+
+- apply filter on the captcha
+- close image after solving the captcha
+- make the captcha image bigger
+- create another utility only for captcha
