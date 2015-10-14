@@ -48,16 +48,29 @@ while($done==0){
 		$done=1;
 		#<STDIN>;
 	} else {
-		print "Not yet.\n";
+		print "Not yet. Schedules:" . schedules($page) . "\n";
 	}
 
-	sleep(1);
+	sleep(10);
 }
 
 exit(0);
 
+sub schedules{
+	my $page = $_[0];
+	my $schedules = 0;
+
+	if($page=~/ctl00_lblRichieste[^>]+>(\d+)</){
+		$schedules = $1;
+	}
+
+	return $schedules;
+}
+
 sub finishSchedule{
 	my $page = $_[0];
+
+	print "Finishing Schedule!!!!!!!!!!!!!!!!!!!!!!!";
 
 	my %formFields = getForm($page);
 	delete $formFields{'ctl00$repFunzioni$ctl03$btnMenuItem'};
