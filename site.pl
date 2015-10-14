@@ -383,7 +383,8 @@ sub getPage{
 	my $file = fileFromURL($url);
 	my $page = "";
 
-	if(-e "Cache/".$file){
+	if(-e "Cache/".$file && !$test){
+		print STDERR "Using page $file from cache.\n";
 		open FILE, "< Cache/$file";
 		while(<FILE>) { $page .= $_; }
 		close FILE;
