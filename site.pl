@@ -42,7 +42,7 @@ while($done==0){
 		do{
 			#$page = getPage("Test3.html");print "Not yet.\n";
 			$page = finishSchedule($page);
-			sleep(1);
+			#sleep(1);
 		}while($page=~/Fascia occupata da altro utente/);
 		
 		$done=1;
@@ -51,7 +51,7 @@ while($done==0){
 		print "Not yet. Schedules:" . schedules($page) . "\n";
 	}
 
-	sleep(10);
+	#sleep(1);
 }
 
 exit(0);

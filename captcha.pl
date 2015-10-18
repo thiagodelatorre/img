@@ -6,7 +6,10 @@ use utf8;
 
 while(1){
 
-	my @files = <"Cache/*captcha*">;
+	my @files = <"Cache/*captcha*pos=3*">;
+	my @files2 = <"Cache/*captcha*pos=2*">;
+
+	@files = (@files,@files2);
 
 	foreach my $captchaFile (@files){
 		my $solutionFile = $captchaFile;
@@ -23,9 +26,9 @@ while(1){
 				close FILE;
 			}
 			system("killall display");			
+			last;
 		}
 	}
-	sleep(1); 
 }
 
 exit(0);
