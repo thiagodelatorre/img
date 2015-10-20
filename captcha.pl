@@ -17,9 +17,12 @@ while(1){
 		if(!(-e $solutionFile) && -s $captchaFile){
 			print $captchaFile, "\n";
 			my $pid = system("display -resize 400x176 \"./$captchaFile\" &");
-			print "Enter the solution for the captcha: ";
-			my $captcha = <STDIN>;
-			chomp $captcha;
+			my $captcha;
+			do{
+				print "Enter the solution for the captcha: ";
+				$captcha = <STDIN>;
+				chomp $captcha;
+			}while(length($captcha)%4!=0);
 			if($captcha ne ""){
 				open FILE, "> $solutionFile";
 				print FILE $captcha;
