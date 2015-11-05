@@ -1,23 +1,36 @@
 #!/usr/bin/perl 
 
+use File::Touch;
+use Time::HiRes qw(sleep gettimeofday tv_interval time);
 use strict;
 use warnings;
 use utf8;
- require LWP::UserAgent;
+require LWP::UserAgent;
  
+my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
+
+our $savePagefilename = "Log/$year$mon$mday$hour-$min-$sec.html";
+our $filesSaved = 0;
+our $firstCheck=1;
+our $logged=0;
+our $currentInterval=0;
+our $checks=0;
+our $checkLimit=25;
+our $targetHour=18;
+
  our $test=1;
 
- our $ua = LWP::UserAgent->new(agent=>'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.107 Safari/537.36');
+ our $ua = LWP::UserAgent->new(agent=>'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36');
  push @{ $ua->requests_redirectable }, 'POST';
  $ua->timeout(180);
  $ua->env_proxy;
- $ua->cookie_jar({file => "cookies.txt"});
+ $ua->cookie_jar({});
 
 our $baseURL = 'https://prenotaonline.esteri.it/';
 our $loginURL = $baseURL.'login.aspx?cidsede=100001&returnUrl=%2f';
 our $username=''; our $password='';
  
-unless($username=~/thiago/){
+unless($username=~/ccmdlt/){
 	print "Username not set.\n";
 	exit(1);
 }
@@ -32,26 +45,57 @@ while($done==0){
 
 	my $hasOpenDays = checkOpenDays($page);
 	if($hasOpenDays){
+		#savePage($page);
 		$page = chooseDay($page);
 		#$page = getPage("Test2.html");
 		
+		#savePage($page);
 		$page = confirmDay($page);
 		#$page = getPage("Test3.html");
 		#printForm($page);
 
 		do{
 			#$page = getPage("Test3.html");print "Not yet.\n";
+			#savePage($page);
 			$page = finishSchedule($page);
-			#sleep(1);
+			sleep(2);
 		}while($page=~/Fascia occupata da altro utente/);
 		
 		$done=1;
 		#<STDIN>;
 	} else {
-		print "Not yet. Schedules:" . schedules($page) . "\n";
+		#print "Not yet. Schedules:" . schedules($page) . "\n";
 	}
 
-	#sleep(1);
+	my ($sec2,$min2,$hour2,$mday,$mon,$year,$wday,$yday,$isdst) =
+		localtime(time);
+
+	if($hour2<$targetHour){
+		my $seconds = 
+			($targetHour-$hour2-1)*60*60+
+			(60-$min2-1)*60+
+			(60-$sec2);
+
+		if($seconds>300-$currentInterval && $seconds<360){
+			$seconds=300-$currentInterval-60;
+		} elsif($seconds>300-$currentInterval){
+			$seconds=300-$currentInterval;
+		} elsif($seconds>2*$currentInterval){
+			$seconds/=2;
+		} else {
+			$seconds-=$currentInterval;
+		}
+		
+		if($seconds<0) {
+			$seconds=1;
+		}
+
+		print STDERR "Sleeping for $seconds at $hour2:$min2:$sec2\n";
+		sleep($seconds); # Start action at 17:59
+
+	} else {
+		sleep(1);
+	}
 }
 
 exit(0);
@@ -162,6 +206,7 @@ sub checkOpenDays{
 }
 
 sub login{
+	print STDERR "Starting\n";
 	my $page = getPage($loginURL);
 	print STDERR "Connected\n";
 	$page = changeLanguage($page);
@@ -169,6 +214,12 @@ sub login{
 	$page = openLogin($page);
 	print STDERR "Login Opened\n";
 	$page = clickLogin($page);
+	if($page=~/ctl00\$btnLogout/){
+		$logged=1;
+	} else {
+		$logged=1;
+		die "Not logged\n";
+	}
 	print STDERR "Logged in\n";
 	$page = clickSchedule($page);
 	print STDERR "Schedule clicked\n";
@@ -193,6 +244,10 @@ sub confirmDocLegal{
 	#}
 	
 	$page = postPage($baseURL."acc_Prenota.aspx",\%formFields);
+	unless($page =~ /ctl00\$btnLogout/){
+		$logged=0;
+		die "Logged out!\n";
+	}
 
 	return $page;
 }
@@ -273,6 +328,7 @@ sub clickLogin{
 sub solveCaptcha{
 	my $page = $_[0];
 	my $captcha = "";
+	my $trials = 0;
 
 	my $url = getCaptchaURL($page);
 	
@@ -281,11 +337,17 @@ sub solveCaptcha{
 	print "Download captcha from here: $url\n";
 
 	unless(-e "Cache/".$captchaFile){
+		#print "here $captchaFile\n";
 		getCaptchaImage($url);
 	}
 
-	until(-e "Captcha/".$captchaFile){
-		sleep(1);
+	until(-e "Captcha/".$captchaFile && -s "Captcha/".$captchaFile){
+		$trials++;
+		sleep(0.1);
+	}
+
+	if($trials==0){
+		print "Captcha recicled: $captchaFile\n";
 	}
 
 	if(-e "Captcha/".$captchaFile){
@@ -349,10 +411,34 @@ sub changeLanguage{
 	return $page;
 }
 
+sub logout{
+	my $url = $_[0];
+	my $ref_formFields = $_[1];
+	my %formFields;
+
+	$formFields{'ctl00$btnLogout'} = $ref_formFields->{'ctl00$btnLogout'};	
+	$formFields{'__VIEWSTATEGENERATOR'} = $ref_formFields->{'__VIEWSTATEGENERATOR'};	
+	$formFields{'__EVENTVALIDATION'} = $ref_formFields->{'__EVENTVALIDATION'};	
+	$formFields{'__VIEWSTATE'} = $ref_formFields->{'__VIEWSTATE'};	
+
+	postPage($url,$ref_formFields);
+
+	print STDERR "Logging out ($checks interactions) to prevent blocking\n";
+
+	exit(0);
+}
+
 sub postPage{
 	my $url = $_[0];
 	my $ref_formFields = $_[1];
 	my $page = "";
+
+	if($checks==$checkLimit){
+		$checks++;
+		logout($url, $ref_formFields);
+	} else {
+		$checks++;
+	}
 
 	#foreach my $key (keys %{$ref_formFields}){
 	#	print $key, " = ", $ref_formFields->{$key}, "\n";
@@ -365,10 +451,13 @@ sub postPage{
 		if($i>0){
 			print STDERR "Trying post $url again\n";
 		}
+		my $t0 = [gettimeofday()];
 		$response = $ua->post($url, $ref_formFields);
+		$currentInterval = tv_interval($t0, [gettimeofday()]);
+		print STDERR "currentInterval: $currentInterval\n";
 
 		$i++;
-		sleep(2) unless($response->is_success);
+		sleep(1) unless($response->is_success);
 	}while(!$response->is_success && $i<10);
 
 	 if ($response->is_success) {
@@ -377,6 +466,9 @@ sub postPage{
 	 else {
 	     die "Connection failed: $response->status_line\n";
 	 }
+	
+	die "Account blocked\n" if($page=~/A conta foi bloqueada/);
+	die "Logged out\n" if($page=~/Per ragioni di sicurezza sei stato disconnesso da questo account/);
 	
 	savePage($page);
 
@@ -400,14 +492,18 @@ sub getPage{
 		while(<FILE>) { $page .= $_; }
 		close FILE;
 	} else {
-		open FILE, "> Cache/$file";
-		
-		$page = downloadPage($url);
-		print FILE $page;
-
-		close FILE;
+		#if($url=~/pos=2/){
+		#	touch("download/".$file); 
+		#} else {	
+			open FILE, "> Cache/$file";
+			$page = downloadPage($url);
+			print FILE $page;
+			close FILE;
+		#} 
 	}
-
+	
+	savePage($page);
+	die "Account blocked\n" if($page=~/A conta foi bloqueada/);
 	return $page;
 }
 
@@ -426,7 +522,7 @@ sub downloadPage{
 		$response = $ua->get($url);
 
 		$i++;
-		sleep(2) unless($response->is_success);
+		#sleep(2) unless($response->is_success);
 	}while(!$response->is_success && $i<10);
 
 	if ($response->is_success) {
@@ -465,16 +561,13 @@ sub getForm{
 sub savePage{
 	my $page = $_[0];
 
-	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
-                                                localtime(time);
-
-	my $filename = "Log/$year$mon$mday$hour$min$sec.html";
 	#print $filename,"\n";
 	
-	open FILE, "> $filename" || die $!;
+	open FILE, "> $savePagefilename--$filesSaved" || die $!;
 
 	print FILE $page;
 
 	close FILE;
-	sleep(1);
+	$filesSaved++;
+	#sleep(1);
 }

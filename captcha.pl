@@ -1,13 +1,23 @@
 #!/usr/bin/perl 
 
+use Time::HiRes qw(sleep);
 use strict;
 use warnings;
+use File::stat;
 use utf8;
 
 while(1){
 
-	my @files = <"Cache/*captcha*pos=3*">;
-	my @files2 = <"Cache/*captcha*pos=2*">;
+	my @files = 
+		map { $_->[1] }
+		sort {$a->[0] <=> $b->[0]}
+		map { [ stat($_)->ctime, $_ ] }
+		glob("Cache/*pos=3*");
+	my @files2 = 
+		map { $_->[1] }
+		sort {$a->[0] <=> $b->[0]}
+		map { [ stat($_)->ctime, $_ ] }
+		glob("Cache/*pos=2*");
 
 	@files = (@files,@files2);
 
@@ -32,6 +42,7 @@ while(1){
 			last;
 		}
 	}
+	sleep(0.5);
 }
 
 exit(0);
